@@ -227,6 +227,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/mobile/interview/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/mobile/interview">> = Specific
+  const handler = {} as typeof import("../../app/mobile/interview/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/offline/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/offline">> = Specific
+  const handler = {} as typeof import("../../app/offline/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/">> = Specific
@@ -312,6 +330,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/admin/users">> = Specific
   const handler = {} as typeof import("../../app/api/admin/users/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/advanced-ai-match/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/advanced-ai-match">> = Specific
+  const handler = {} as typeof import("../../app/api/advanced-ai-match/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
@@ -407,10 +434,28 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/api/interviews/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/interviews">> = Specific
+  const handler = {} as typeof import("../../app/api/interviews/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/api/n8n-automation/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/n8n-automation">> = Specific
   const handler = {} as typeof import("../../app/api/n8n-automation/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/notifications/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/notifications">> = Specific
+  const handler = {} as typeof import("../../app/api/notifications/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

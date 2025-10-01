@@ -59,6 +59,18 @@ model User {
   agencyClients       Client[]      @relation("AgencyClients")        // Clients managed by this recruiter
   placements           Placement[]  @relation("PlacementRecruiter")   // Placements made by this recruiter
   placedCandidates     Placement[]  @relation("PlacedCandidates")     // Candidates placed by agency
+
+  // VIDEO INTERVIEW RELATIONS
+  candidateInterviews  VideoInterview[] @relation("InterviewCandidate")  // Interviews as candidate
+  interviewerInterviews VideoInterview[] @relation("InterviewInterviewer") // Interviews as interviewer
+  interviewAvailability InterviewAvailability[] @relation("AvailabilityInterviewer") // Interview availability
+
+  // NOTIFICATION RELATIONS
+  sentNotifications   Notification[] @relation("NotificationRecipient") // Notifications sent to this user
+  pushTokens          PushToken[]    @relation("PushTokenUser")        // Mobile push tokens
+
+  // TEMPLATE RELATIONS
+  createdTemplates     InterviewTemplate[] @relation("TemplateCreator") // Interview templates created
 }
 
 model Job {
@@ -93,6 +105,12 @@ model Job {
 
   // AGENCY RELATIONS
   placements          Placement[]       // Successful placements for this job
+
+  // VIDEO INTERVIEW RELATIONS
+  videoInterviews     VideoInterview[]  // Video interviews for this job
+
+  // NOTIFICATION RELATIONS
+  notifications       Notification[]    // Notifications related to this job
 }
 
 model Application {
@@ -109,6 +127,9 @@ model Application {
   resumeId          String?
   resume            Resume?             @relation(fields: [resumeId], references: [id])
   score             Score?
+
+  // NOTIFICATION RELATIONS
+  notifications     Notification[]     // Notifications related to this application
 
   @@unique([candidateId, jobId])
 }
@@ -323,6 +344,200 @@ enum LeadType {
   SHRINKING     // Se reduce
   HIGH_TURNOVER // Turnover mare
   LOW_TURNOVER  // Turnover mic
+}
+
+// VIDEO INTERVIEW SYSTEM
+
+model VideoInterview {
+  id                String              @id @default(cuid())
+  scheduledAt       DateTime
+  duration          Int               // Minutes
+  status            InterviewStatus   @default(SCHEDULED)
+  meetingId         String            @unique // Zoom/Teams/WebRTC room ID
+  meetingPassword   String?
+  meetingUrl        String            // Join URL
+  recordingUrl      String?           // Cloud storage URL for recording
+  recordingKey      String?           // S3 key
+  aiTranscription   String?           @db.Text
+  aiNotes           String?           @db.Text
+  aiScore           Int?              // 0-100 AI assessment
+  interviewerNotes  String?           @db.Text
+  candidateFeedback String?           @db.Text
+
+  jobId             String
+  job               Job               @relation(fields: [jobId], references: [id])
+
+  candidateId       String
+  candidate         User              @relation("InterviewCandidate", fields: [candidateId], references: [id])
+
+  interviewerId     String?
+  interviewer       User?             @relation("InterviewInterviewer", fields: [interviewerId], references: [id])
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  interviewQuestions InterviewQuestion[]
+  interviewAnalysis  InterviewAnalysis? // AI analysis of this interview
+
+  // NOTIFICATION RELATIONS
+  notifications      Notification[]    // Notifications related to this interview
+}
+
+model InterviewQuestion {
+  id                String      @id @default(cuid())
+  question          String
+  expectedAnswer    String?     @db.Text
+  aiAssessment      String?     @db.Text
+  candidateResponse String?     @db.Text
+  score             Int?        // 0-10
+  timestamp         DateTime?   // When question was asked during interview
+
+  interviewId       String
+  interview         VideoInterview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model InterviewTemplate {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  category    String      // industry/category
+  language    String      @default("en")
+
+  questions   String[]    // Pre-defined questions array
+  duration    Int         // Suggested duration in minutes
+
+  createdBy   String
+  createdByUser User      @relation("TemplateCreator", fields: [createdBy], references: [id])
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([name, category, language])
+}
+
+// AI Interview Analysis
+model InterviewAnalysis {
+  id                  String      @id @default(cuid())
+  interviewId         String      @unique
+  interview           VideoInterview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  overallScore        Int         // 0-100
+  communicationScore  Int         // 0-100
+  technicalSkillScore Int         // 0-100
+  culturalFitScore    Int         // 0-100
+  motivationScore     Int         // 0-100
+
+  strengths           String[]    // Key strengths identified
+  weaknesses          String[]    // Areas for improvement
+  recommendations     String[]    // Hiring recommendations
+
+  personalityTraits   Json?       // AI-detected personality traits
+  sentimentAnalysis   Json?       // Overall sentiment during interview
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+// Interview Availability
+model InterviewAvailability {
+  id             String      @id @default(cuid())
+
+  date           DateTime    // Date of availability
+  startTime      String      // "09:00"
+  endTime        String      // "17:00"
+  timeZone       String      @default("Europe/Bucharest")
+
+  isAvailable    Boolean     @default(true)
+  bookedSlots    DateTime[]  // Array of booked time slots
+
+  interviewerId  String
+  interviewer    User        @relation("AvailabilityInterviewer", fields: [interviewerId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([interviewerId, date])
+}
+
+// Notification History
+model Notification {
+  id          String            @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String            @db.Text
+  priority    NotificationPriority @default(MEDIUM)
+  read        Boolean           @default(false)
+
+  // Recipient
+  recipientId String
+  recipient   User              @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  // Related entities (optional)
+  jobId       String?
+  job         Job?              @relation(fields: [jobId], references: [id])
+  applicationId String?
+  application Application?      @relation(fields: [applicationId], references: [id])
+  interviewId String?
+  interview   VideoInterview?   @relation(fields: [interviewId], references: [id])
+
+  sentAt      DateTime          @default(now())
+  readAt      DateTime?
+
+  // Metadata
+  data        Json?             // Additional notification data
+}
+
+// Mobile Push Tokens
+model PushToken {
+  id          String      @id @default(cuid())
+  token       String      @unique
+  platform    PlatformType // ios, android, web
+  deviceId    String?     // Optional device identifier
+
+  userId      String
+  user        User        @relation("PushTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([userId, token])
+}
+
+// NEW ENUMS FOR VIDEO SYSTEM
+
+enum InterviewStatus {
+  SCHEDULED     // Programat
+  CONFIRMED     // Confirmat de candidat
+  IN_PROGRESS   // În desfășurare
+  COMPLETED     // Finalizat
+  CANCELLED     // Anulat
+  NO_SHOW       // Candidat nu a apărut
+}
+
+enum NotificationType {
+  APPLICATION_UPDATE
+  JOB_MATCH
+  INTERVIEW_SCHEDULED
+  INTERVIEW_REMINDER
+  PLACEMENT_CONFIRMED
+  MESSAGE_RECEIVED
+  SYSTEM_MAINTENANCE
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PlatformType {
+  IOS
+  ANDROID
+  WEB
 }
 
 // ENHANCED SCRAPING LOG

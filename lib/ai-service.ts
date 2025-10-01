@@ -460,6 +460,11 @@ export class AIService {
   }
 
   // Advanced CV Analysis with AI
+  // Public method to generate embeddings for advanced AI features
+  async generateEmbeddings(text: string): Promise<number[]> {
+    return await this.generateEmbedding(text)
+  }
+
   async analyzeCV(content: string, country?: string): Promise<CVAnalysis> {
     try {
       const prompt = `

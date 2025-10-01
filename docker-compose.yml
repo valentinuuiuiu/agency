@@ -1,0 +1,59 @@
+version: '3.8'
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: securepass456
+      POSTGRES_DB: romanian_danish_jobs
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=securepass456
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://user:securepass456@postgres:5432/romanian_danish_jobs
+    env_file:
+      - .env.local
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  n8n_data:

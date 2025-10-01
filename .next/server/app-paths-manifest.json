@@ -1,0 +1,12 @@
+{
+  "/api/admin/stats/route": "app/api/admin/stats/route.js",
+  "/api/admin/ai-tasks/process/route": "app/api/admin/ai-tasks/process/route.js",
+  "/api/admin/jobs/route": "app/api/admin/jobs/route.js",
+  "/[locale]/page": "app/[locale]/page.js",
+  "/[locale]/admin/page": "app/[locale]/admin/page.js",
+  "/[locale]/admin/scraper/page": "app/[locale]/admin/scraper/page.js",
+  "/[locale]/admin/settings/page": "app/[locale]/admin/settings/page.js",
+  "/[locale]/admin/users/page": "app/[locale]/admin/users/page.js",
+  "/[locale]/admin/ai-tasks/page": "app/[locale]/admin/ai-tasks/page.js",
+  "/[locale]/admin/jobs/page": "app/[locale]/admin/jobs/page.js"
+}

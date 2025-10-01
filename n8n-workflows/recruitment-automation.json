@@ -1,0 +1,264 @@
+{
+  "name": "Romanian-Danish Recruitment Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-3-5-sonnet-20241022",
+        "messages": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an expert recruitment AI agent for Romanian workers in Danish agriculture and farming. Your task is to identify high-quality job opportunities in Denmark that would be suitable for Romanian workers. Focus on agriculture, farming, forestry, and related industries.\n\nGenerate search queries and strategies to find:\n1. Danish farm job postings\n2. Agricultural companies hiring\n3. Seasonal work opportunities\n4. Long-term farming positions\n\nBe strategic and use multiple search approaches. Consider both Danish and English job sites."
+            },
+            {
+              "role": "user",
+              "content": "Generate a comprehensive list of Danish websites and job platforms where Romanian workers can find agriculture and farming jobs. Include both Danish and international platforms. Provide specific URLs and search strategies for each."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "AI Research Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json['research_results'] }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        }
+      },
+      "name": "Browser Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-3-5-sonnet-20241022",
+        "messages": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an expert web scraper and data extraction AI. Your task is to analyze HTML content from Danish job sites and extract relevant job information for Romanian workers.\n\nExtract the following information:\n1. Job titles (in Danish and English)\n2. Company names\n3. Job descriptions\n4. Requirements and qualifications\n5. Salary information\n6. Location details\n7. Contact information\n8. Application deadlines\n\nFocus on agriculture, farming, forestry, and related jobs. Filter out irrelevant positions. Structure the data in a clean, organized format."
+            },
+            {
+              "role": "user",
+              "content": "Extract job information from this HTML content: {{ $json['html_content'] }}\n\nFocus on positions suitable for Romanian workers in Danish agriculture and farming sectors."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Data Extraction Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-3-5-sonnet-20241022",
+        "messages": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a recruitment strategist specializing in connecting Romanian workers with Danish agricultural employers. Your task is to analyze job opportunities and create personalized outreach strategies.\n\nFor each job opportunity, create:\n1. A compelling outreach email in Romanian and Danish\n2. Key selling points for Romanian workers\n3. Company research insights\n4. Customized recruitment messaging\n5. Follow-up strategies\n\nConsider cultural differences, language barriers, and practical considerations for Romanian workers relocating to Denmark."
+            },
+            {
+              "role": "user",
+              "content": "Create a comprehensive recruitment strategy for this job opportunity: {{ $json['job_data'] }}\n\nGenerate personalized outreach emails and recruitment messaging for Romanian workers."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Recruitment Strategy Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/scrape-danish-farms",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "jobData",
+              "value": "={{ $json['recruitment_strategy'] }}"
+            },
+            {
+              "name": "targetCompanies",
+              "value": "={{ $json['extracted_jobs'] }}"
+            }
+          ]
+        }
+      },
+      "name": "Trigger Scraping API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-3-5-sonnet-20241022",
+        "messages": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are an AI recruitment coordinator managing automated outreach campaigns. Your task is to analyze campaign results and optimize future recruitment strategies.\n\nAnalyze:\n1. Success rates of different outreach methods\n2. Response patterns from employers\n3. Job market trends\n4. Optimal timing and messaging\n5. Cultural and language considerations\n\nGenerate insights and recommendations for improving recruitment automation."
+            },
+            {
+              "role": "user",
+              "content": "Analyze the results of this recruitment campaign: {{ $json['campaign_results'] }}\n\nProvide insights and recommendations for optimizing future automated recruitment efforts."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Campaign Analysis Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "subject": "Romanian-Danish Recruitment Campaign Report - {{ $now.format('YYYY-MM-DD') }}",
+        "body": "={{ $json['analysis_report'] }}",
+        "to": "ionutbaltag3@gmail.com",
+        "from": "noreply@danemarca-jobs.ro"
+      },
+      "name": "Send Report Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Browser Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Browser Scraper": {
+      "main": [
+        [
+          {
+            "node": "Data Extraction Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Extraction Agent": {
+      "main": [
+        [
+          {
+            "node": "Recruitment Strategy Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recruitment Strategy Agent": {
+      "main": [
+        [
+          {
+            "node": "Trigger Scraping API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Scraping API": {
+      "main": [
+        [
+          {
+            "node": "Campaign Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

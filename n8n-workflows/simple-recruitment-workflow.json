@@ -1,0 +1,149 @@
+{
+  "name": "Simple Recruitment Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://app:3000/api/n8n-automation",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "research"
+            },
+            {
+              "name": "data",
+              "value": "Find Danish agricultural job sites and companies hiring Romanian workers for farms and forestry."
+            }
+          ]
+        }
+      },
+      "name": "Research Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://app:3000/api/scrape-danish-farms",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "targetSites",
+              "value": "={{ $json['result'] }}"
+            }
+          ]
+        }
+      },
+      "name": "Scrape Farms",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://app:3000/api/n8n-automation",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "task",
+              "value": "analyze"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json }}"
+            }
+          ]
+        }
+      },
+      "name": "Analyze Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "subject": "Daily Recruitment Report - {{ $now.format('YYYY-MM-DD') }}",
+        "body": "={{ $json['result'] }}",
+        "to": "ionutbaltag3@gmail.com",
+        "from": "noreply@danemarca-jobs.ro"
+      },
+      "name": "Send Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Research Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Jobs": {
+      "main": [
+        [
+          {
+            "node": "Scrape Farms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Farms": {
+      "main": [
+        [
+          {
+            "node": "Analyze Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Results": {
+      "main": [
+        [
+          {
+            "node": "Send Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

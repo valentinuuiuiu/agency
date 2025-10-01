@@ -1,0 +1,232 @@
+{
+  "name": "Romanian-Danish Recruitment Automation (Local AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"Ești un agent de cercetare specializat în recrutarea muncitorilor români pentru ferme și locuri de muncă agricole în Danemarca. Generează strategii de căutare pentru:\\n1. Site-uri daneze de joburi agricole\\n2. Platforme internaționale cu joburi în Danemarca\\n3. Companii agricole daneze care angajează\\n4. Oportunități sezoniere și permanente\\n\\nFurnizează URL-uri specifice și strategii de căutare eficiente.\"},{\"role\":\"user\",\"content\":\"Generează o listă cuprinzătoare de site-uri daneze și platforme internaționale unde românii pot găsi locuri de muncă în agricultură și ferme. Include URL-uri specifice și strategii de căutare pentru fiecare platformă.\"}]"
+            }
+          ]
+        }
+      },
+      "name": "AI Research Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json['research_results'] }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        }
+      },
+      "name": "Scrape Job Sites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"Ești un expert în extragerea datelor din conținut web. Analizează conținutul HTML și extrage informații relevante despre locuri de muncă pentru români în agricultura daneză:\\n\\n1. Titluri joburi (în daneză și engleză)\\n2. Nume companii\\n3. Descrieri joburi\\n4. Cerințe și calificări\\n5. Informații salariale\\n6. Detalii locație\\n7. Informații contact\\n8. Termene aplicare\\n\\nFiltrează doar pozițiile relevante în agricultură, ferme, silvicultură.\"},{\"role\":\"user\",\"content\":\"Extrage informații despre locuri de muncă din acest conținut HTML: {{$json['html_content']}}\\n\\nConcentrează-te pe poziții potrivite pentru muncitori români în sectorul agricol danez.\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Extract Job Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"Ești un strateg de recrutare specializat în conectarea muncitorilor români cu angajatori danezi din agricultură. Pentru fiecare oportunitate de muncă, creează:\\n\\n1. Emailuri de outreach convingătoare în română și daneză\\n2. Puncte forte pentru muncitorii români\\n3. Cercetări despre companii\\n4. Mesaje de recrutare personalizate\\n5. Strategii de follow-up\\n\\nConsideră diferențele culturale, barierele lingvistice și considerațiile practice pentru relocarea românilor în Danemarca.\"},{\"role\":\"user\",\"content\":\"Creează o strategie completă de recrutare pentru această oportunitate: {{$json['job_data']}}\\n\\nGenerează emailuri personalizate de outreach și mesaje de recrutare pentru muncitori români.\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Generate Outreach",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/scrape-danish-farms",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "jobData",
+              "value": "={{ $json['recruitment_strategy'] }}"
+            },
+            {
+              "name": "targetCompanies",
+              "value": "={{ $json['extracted_jobs'] }}"
+            }
+          ]
+        }
+      },
+      "name": "Execute Scraping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"Ești un coordonator AI pentru campanii de recrutare automate. Analizează rezultatele campaniilor și optimizează strategiile viitoare:\\n\\nAnalizează:\\n1. Rate de succes ale metodelor diferite de outreach\\n2. Modele de răspuns ale angajatorilor\\n3. Tendințe pe piața muncii\\n4. Timing optim și mesaje\\n5. Considerații culturale și lingvistice\\n\\nGenerează insight-uri și recomandări pentru îmbunătățirea automatizării recrutării.\"},{\"role\":\"user\",\"content\":\"Analizează rezultatele acestei campanii de recrutare: {{$json['campaign_results']}}\\n\\nFurnizează insight-uri și recomandări pentru optimizarea eforturilor viitoare de recrutare automată.\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Analyze Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "subject": "Raport Campanie Recrutare România-Danemarca - {{ $now.format('YYYY-MM-DD') }}",
+        "body": "={{ $json['analysis_report'] }}",
+        "to": "ionutbaltag3@gmail.com",
+        "from": "noreply@danemarca-jobs.ro"
+      },
+      "name": "Send Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "AI Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Scrape Job Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Job Sites": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Job Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Outreach": {
+      "main": [
+        [
+          {
+            "node": "Execute Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Scraping": {
+      "main": [
+        [
+          {
+            "node": "Analyze Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Results": {
+      "main": [
+        [
+          {
+            "node": "Send Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

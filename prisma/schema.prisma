@@ -1,0 +1,410 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  emailVerified   DateTime?
+  password        String?
+  name            String?
+  firstName       String?
+  lastName        String?
+  phone           String?
+  role            UserRole       @default(CANDIDATE)
+  experienceLevel ExperienceLevel @default(BEGINNER)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  jobs            Job[]          // Jobs posted by recruiters
+  applications    Application[]  // Applications submitted by candidates
+  resumes         Resume[]       // Resumes uploaded by candidates
+
+  // AGENCY RELATIONS
+  agencyClients       Client[]      @relation("AgencyClients")        // Clients managed by this recruiter
+  placements           Placement[]  @relation("PlacementRecruiter")   // Placements made by this recruiter
+  placedCandidates     Placement[]  @relation("PlacedCandidates")     // Candidates placed by agency
+}
+
+model Job {
+  id                  String            @id @default(cuid())
+  title               String
+  description         String            @db.Text
+  descriptionEmbedding Json?            // OpenAI embedding for semantic search (1536-dim vector)
+  category            JobCategory
+  location            String
+  company             String
+  contactEmail        String
+  contactPhone        String?
+  salary              String?
+  workingHours        String            @default("37-40 ore/săptămână")
+  contractType        ContractType      @default(FULL_TIME)
+  languageRequirement LanguageLevel     @default(BASIC)
+  experienceRequired  ExperienceLevel   @default(BEGINNER)
+  seasonalWork        Boolean           @default(false)
+  housingProvided     Boolean           @default(false)
+  transportProvided   Boolean           @default(false)
+  requirements        String            @db.Text
+  benefits            String?           @db.Text
+  startDate           DateTime?
+  endDate             DateTime?
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  recruiterId         String
+  recruiter           User              @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  applications        Application[]
+
+  // AGENCY RELATIONS
+  placements          Placement[]       // Successful placements for this job
+}
+
+model Application {
+  id                String              @id @default(cuid())
+  status            ApplicationStatus   @default(PENDING)
+  coverLetter       String?             @db.Text
+  appliedAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  candidateId       String
+  candidate         User                @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  jobId             String
+  job               Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resumeId          String?
+  resume            Resume?             @relation(fields: [resumeId], references: [id])
+  score             Score?
+
+  @@unique([candidateId, jobId])
+}
+
+model Resume {
+  id                String      @id @default(cuid())
+  originalName      String
+  cloudStoragePath  String      // S3 key for the uploaded PDF
+  content           String?     @db.Text  // Extracted text from PDF for embedding
+  contentEmbedding  Json?       // OpenAI embedding for semantic search (1536-dim vector)
+  uploadedAt        DateTime    @default(now())
+
+  userId            String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications      Application[]
+  scores            Score[]
+}
+
+model Score {
+  id            String      @id @default(cuid())
+  overallScore  Int         // Score from 1-100
+  pros          String[]    // Exactly 2 pros
+  cons          String[]    // Exactly 2 cons
+  feedback      String?     @db.Text
+  scoredAt      DateTime    @default(now())
+
+  applicationId String      @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  resumeId      String
+  resume        Resume      @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// AGENCY RECRUITMENT MODELS
+
+model Client {
+  id              String       @id @default(cuid())
+  name            String
+  country         Countries
+  industry        Industry
+  contactPerson   String
+  email           String       @unique
+  phone           String
+  website         String?
+  address         String?
+  status          ClientStatus @default(PROSPECT)
+  commissionRate  Decimal      @default(0.15) // 15% default
+  notes           String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  recruiterId     String
+  recruiter       User         @relation("AgencyClients", fields: [recruiterId], references: [id])
+  placements      Placement[]
+  payments        Payment[]
+  companyLeads    CompanyLead[] @relation("ConvertedFromLead")
+
+  @@unique([email, recruiterId])
+}
+
+model Placement {
+  id            String            @id @default(cuid())
+  candidateId   String
+  candidate     User              @relation("PlacedCandidates", fields: [candidateId], references: [id])
+  clientId      String
+  client        Client            @relation(fields: [clientId], references: [id])
+  jobId         String
+  job           Job               @relation(fields: [jobId], references: [id])
+  country       Countries
+  placementDate DateTime          @default(now())
+  startSalary   Decimal
+  commission    Decimal // Auto-calculated: startSalary x client.commissionRate
+  status        PlacementStatus   @default(PLACED)
+  notes         String?           @db.Text
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  recruiterId   String
+  recruiter     User              @relation("PlacementRecruiter", fields: [recruiterId], references: [id])
+
+  @@unique([candidateId, jobId])
+}
+
+model Payment {
+  id        String      @id @default(cuid())
+  clientId  String
+  client    Client      @relation(fields: [clientId], references: [id])
+  amount    Decimal
+  period    String // e.g., "2024-Q1", "2024-09"
+  status    PaymentStatus @default(PENDING)
+  notes     String?     @db.Text
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model CompanyLead {
+  id           String        @id @default(cuid())
+  name         String
+  website      String
+  country      Countries
+  industry     Industry
+  email        String?
+  phone        String?
+  contactPerson String?
+  size         CompanySize?
+  status       LeadStatus    @default(NEW)
+
+  // AI-powered lead scoring
+  fitScore     Int? // 0-100: How suitable for Romanian recruitment
+  leadType     LeadType   // RELIABLE, PAYS_RELOC, UNRELIABLE, GROWING, SHRINKING
+
+  // Conversion tracking
+  sourcedFrom  String? // e.g., "web_scraping", "social_media", "referral"
+  contactedAt  DateTime?
+  firstResponse DateTime?
+  lastContact  DateTime?
+
+  // Recruitment insights
+  openPositions Int @default(0)
+  paysRelocation Boolean @default(false)
+  requiresLanguage String? // "Basic English", "Danish required", etc
+  visaHelp       Boolean @default(false)
+  housingHelp    Boolean @default(false)
+
+  notes         String? @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  convertedClientId String? // If this lead becomes a paying client
+  convertedClient   Client? @relation("ConvertedFromLead", fields: [convertedClientId], references: [id])
+
+  @@unique([website])
+}
+
+// NEW AGENCY ENUMS
+
+enum Countries {
+  DENMARK      // Danemarca
+  GERMANY      // Germania
+  NETHERLANDS  // Olanda
+  FRANCE       // Franța
+}
+
+enum Industry {
+  AGRICULTURE         // Agricultură
+  FORESTRY           // Silvicultură
+  FOOD_PROCESSING    // Procesare alimentară
+  HORTICULTURE       // Horticultură
+  LIVESTOCK_FARMING  // Creșterea animalelor
+  DAIRY_FARMING      // Fermă lăptărie
+  GREENHOUSES        // Sere
+  LANDSCAPING        // Amenajări peisagistice
+  OTHER
+}
+
+enum CompanySize {
+  SMALL    // 1-10 angajați
+  MEDIUM   // 11-50 angajați
+  LARGE    // 51-200 angajați
+  ENTERPRISE // 200+ angajați
+}
+
+enum ClientStatus {
+  PROSPECT    // Prospect găsit via scraping
+  CONTACTED   // Contactat, în discuții
+  INTERESTED  // Arată interes
+  ACTIVE      // Client activ, plătește comision
+  INACTIVE    // Client inactiv
+  CANCELLED   // Contract anulat
+}
+
+enum PlacementStatus {
+  PLACED        // Plasat cu succes
+  ON_PROBATION  // În perioadă de probă
+  CONFIRMED     // Confirmat permanent
+  TERMINATED    // Reziliat
+}
+
+enum PaymentStatus {
+  PENDING     // În așteptare
+  OVERDUE     // Întârziat
+  PAID        // Plătit
+  CANCELLED   // Anulat
+}
+
+enum LeadStatus {
+  NEW           // Lead nou găsit
+  CONTACTING   // În proces de contactare
+  RESPONDED     // A răspuns
+  MEETING       // Programată întâlnire
+  CONTRACTING   // În контрактări
+  CONVERTED     // Convertit în client
+  LOST         // Perduto
+  UNQUALIFIED   // Nu califică
+}
+
+enum LeadType {
+  RELIABLE      // Companie de încredere
+  UNRELIABLE    // Istoric problematic
+  PAYS_RELOC    // Plătește mutarea
+  FAST_HIRING   // Angajează rapid
+  SEASONAL      // Doar sezonal
+  GROWING       // În creștere
+  SHRINKING     // Se reduce
+  HIGH_TURNOVER // Turnover mare
+  LOW_TURNOVER  // Turnover mic
+}
+
+// ENHANCED SCRAPING LOG
+
+model ScrapingLog {
+  id            String       @id @default(cuid())
+  date          DateTime     @default(now())
+  country       Countries    // Which country's companies were scraped
+  companiesCount Int
+  newLeadsCount Int
+  emailsFound    Int
+  emailsSent     Int
+  errors         String?      @db.Text
+  duration       Int // Minutes it took
+  pagesScraped   Int
+  createdAt      DateTime    @default(now())
+
+  // AI analysis
+  locationTrends String? // AI insights on locations with most opportunities
+  industryTrends String? // AI insights on growing industries
+  successRate    Decimal? // Estimated conversion potential
+}
+
+// AI Configuration
+model AIConfig {
+  id          String   @id @default(cuid())
+  provider    String   @default("openrouter") // openrouter, openai, etc.
+  modelName   String   @default("google/gemma-3n-e4b-it") // Embedding model name
+  apiKey      String?  // API key for the provider
+  baseURL     String?  // Custom base URL if needed
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([provider, modelName])
+}
+
+// Enums
+enum UserRole {
+  CANDIDATE
+  AGENCY_OWNER  // The agency owner/admin who manages the recruitment business
+  ADMIN         // System administrator
+}
+
+enum ExperienceLevel {
+  BEGINNER      // Începător
+  INTERMEDIATE  // Intermediar
+  ADVANCED      // Avansat
+  EXPERT        // Expert
+}
+
+enum JobCategory {
+  FORESTRY           // Silvicultură
+  AGRICULTURE        // Agricultură
+  GREENHOUSE         // Seră
+  FRUIT_HARVESTING   // Recoltare fructe
+  ANIMAL_CARE        // Îngrijire animale
+  TREE_PLANTING      // Plantare arbori
+  LOGGING            // Exploatare forestieră
+  PARK_MAINTENANCE   // Întreținere parcuri
+}
+
+enum ContractType {
+  FULL_TIME          // Normă întreagă
+  PART_TIME          // Program parțial
+  SEASONAL           // Sezonier
+  TEMPORARY          // Temporar
+}
+
+enum LanguageLevel {
+  NONE              // Fără cerințe
+  BASIC             // De bază
+  INTERMEDIATE      // Intermediar
+  ADVANCED          // Avansat
+  NATIVE            // Nativ
+}
+
+enum ApplicationStatus {
+  PENDING           // În așteptare
+  REVIEWING         // În evaluare
+  INTERVIEWED       // Intervievat
+  ACCEPTED          // Acceptat
+  REJECTED          // Respins
+  WITHDRAWN         // Retras
+}
